@@ -2,24 +2,8 @@ import cv2
 import numpy as np
 import json
 import os
-import pyfirmata2 as pyfirmata  # PyFirmata for Arduino control
 import time
 from datetime import datetime
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
-import os
-import time
-from glob import glob
-
-
-# Connect to Arduino using PyFirmata
-board = pyfirmata.Arduino('COM5')  # Change COM5 if needed
-led_pin = board.get_pin('d:7:o')  # Digital pin 7 as output
-
-time.sleep(2)  # Allow connection to establish
 
 if __name__ == "__main__":
     # Create and load the LBPH face recognizer model
@@ -79,93 +63,17 @@ if __name__ == "__main__":
                 print(f"Intruder detected, image saved at {intruder_image_path}")  # Log intruder detection
 
             # Draw a rectangle around the face
-            cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)  # Draw a green rectangle
+            cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
             # Display the name of the person
-            cv2.putText(img, name, (x + 5, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)  # Name label
+            cv2.putText(img, name, (x + 5, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
             # Display the confidence level
-            cv2.putText(img, confidence_text, (x + 5, y + h - 5), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 1)  # Confidence label
-
-        # Blink LED only if a recognized face is found
-        if face_recognized:
-            led_pin.write(1)  # LED ON
-            time.sleep(4)  # Keep it ON for 1 second
-            led_pin.write(0)  # LED OFF
+            cv2.putText(img, confidence_text, (x + 5, y + h - 5), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 1)
 
         cv2.imshow('camera', img)  # Show the video feed with annotations
 
         if cv2.waitKey(10) & 0xff == 27:  # Exit the loop if 'Escape' key is pressed
             break
 
-# Email configuration
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-SENDER_EMAIL = "projecterjonnomail@gmail.com"
-EMAIL_PASSWORD = "addq elyc xgzs zbgj"  
-RECEIVER_EMAIL = "ashfaq21@iut-dhaka.edu"
-
-# Email subject and body
-SUBJECT = "Intruder ALERT"
-BODY = "An intruder was detected. See attached image for details."
-
-# Directory where intruder images are saved
-INTRUDER_DIR = "intruder_images"
-
-# Send interval (seconds) - 30 seconds in this case
-SEND_INTERVAL = 30
-last_sent_time = 0  # Keeps track of the last sent email time
-
-
-def send_intruder_alert():
-    global last_sent_time
-    current_time = time.time()
-
-    # Check if enough time has passed since the last email
-    if current_time - last_sent_time < SEND_INTERVAL:
-        print("Skipping email; 30 seconds have not passed since the last alert.")
-        return
-
-    # Find the latest intruder image
-    list_of_files = glob(os.path.join(INTRUDER_DIR, "*.jpg"))
-    if not list_of_files:
-        print("No intruder images found.")
-        return
-    latest_file = max(list_of_files, key=os.path.getctime)
-
-    # Compose email
-    try:
-        message = MIMEMultipart()
-        message["From"] = SENDER_EMAIL
-        message["To"] = RECEIVER_EMAIL
-        message["Subject"] = SUBJECT
-        message.attach(MIMEText(BODY, "plain"))
-
-        # Attach the intruder image
-        with open(latest_file, "rb") as attachment_file:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(attachment_file.read())
-        encoders.encode_base64(part)
-        part.add_header("Content-Disposition", f"attachment; filename={os.path.basename(latest_file)}")
-        message.attach(part)
-
-        # Send email
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()  # Start TLS encryption
-            server.login(SENDER_EMAIL, EMAIL_PASSWORD)
-            server.sendmail(SENDER_EMAIL, RECEIVER_EMAIL, message.as_string())
-
-        print(f"Intruder alert email sent successfully! Attached: {os.path.basename(latest_file)}")
-        last_sent_time = current_time  # Update the last sent time
-    except Exception as e:
-        print(f"Unable to send email: {e}")
-
-
-if __name__ == "__main__":
-    if not os.path.exists(INTRUDER_DIR):
-        print(f"Directory '{INTRUDER_DIR}' does not exist. Creating it.")
-        os.makedirs(INTRUDER_DIR)
-
-    send_intruder_alert()
-
+    # Cleanup
     cam.release()  # Release the camera
     cv2.destroyAllWindows()  # Close all OpenCV windows
-    board.exit()  # Close PyFirmata connection
